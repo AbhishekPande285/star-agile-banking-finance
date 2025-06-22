@@ -43,9 +43,7 @@ pipeline {
             }
         }
 
-        // ✅ Scripted style deploy stage (NO steps block here)
         stage('Deploy to Kubernetes Cluster') {
-            agent none
             steps {
                 script {
                     echo 'Copying deployment YAML and applying to Kubernetes Cluster'
@@ -55,8 +53,8 @@ pipeline {
                             transfers: [
                                 sshTransfer(
                                     sourceFiles: 'kubernetesdeploy.yaml',
-                                    remoteDirectory: '/home/ubuntu',
-                                    execCommand: 'kubectl apply -f /home/ubuntu/kubernetesdeploy.yaml',
+                                    remoteDirectory: '.', // home of devopsadmin
+                                    execCommand: 'kubectl apply -f kubernetesdeploy.yaml',
                                     flatten: true
                                 )
                             ],
