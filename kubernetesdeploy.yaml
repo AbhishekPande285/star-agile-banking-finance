@@ -1,11 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: banking-app-deployment
-  labels:
-    app: banking-app
+  name: banking-app
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: banking-app
@@ -15,23 +13,21 @@ spec:
         app: banking-app
     spec:
       containers:
-      - name: banking-container
+      - name: banking-app
         image: abhishekpande285/bankapp-eta-app:latest
         ports:
         - containerPort: 8080
-        imagePullPolicy: Always
-
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: banking-app-service
+  name: banking-service
 spec:
   type: NodePort
   selector:
     app: banking-app
   ports:
-  - protocol: TCP
-    port: 8080
-    targetPort: 8080
-    nodePort: 32000
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+      nodePort: 32000
