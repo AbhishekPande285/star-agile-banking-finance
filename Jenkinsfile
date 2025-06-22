@@ -6,39 +6,40 @@ pipeline {
     }
 
     stages {
+
         stage('SCM Checkout') {
             steps {
-                echo 'Checking out source code...'
+                echo 'Checking out code from GitHub'
                 git 'https://github.com/AbhishekPande285/star-agile-banking-finance.git'
             }
         }
 
         stage('Application Build') {
             steps {
-                echo 'Running Maven Build...'
+                echo 'Building the Spring Boot Application'
                 sh 'mvn clean package'
             }
         }
 
         stage('Docker Build') {
             steps {
-                echo 'Building Docker Image...'
+                echo 'Building Docker Image'
                 sh "docker build -t abhishekpande285/bankapp-eta-app:${BUILD_NUMBER} ."
                 sh "docker tag abhishekpande285/bankapp-eta-app:${BUILD_NUMBER} abhishekpande285/bankapp-eta-app:latest"
-                sh 'docker image list'
+                sh 'docker images'
             }
         }
 
-        stage('Login to DockerHub') {
+        stage('DockerHub Login') {
             steps {
-                echo 'Logging in to DockerHub...'
+                echo 'Logging into DockerHub'
                 sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
             }
         }
 
-        stage('Push Image to DockerHub') {
+        stage('Docker Push') {
             steps {
-                echo 'Pushing Docker Image...'
+                echo 'Pushing Docker Image to DockerHub'
                 sh 'docker push abhishekpande285/bankapp-eta-app:latest'
             }
         }
@@ -47,23 +48,22 @@ pipeline {
             steps {
                 echo 'Deploying to Kubernetes...'
                 script {
-                    sshPublisher(publishers: [
-                        sshPublisherDesc(
-                            configName: 'Kubernetes_Master',
-                            transfers: [
-                                sshTransfer(
-                                    sourceFiles: '*.yaml',
-                                    removePrefix: '',
-                                    remoteDirectory: '.',
-                                    execCommand: 'kubectl apply -f kubernetesdeploy.yaml',
-                                    execTimeout: 120000
-                                )
-                            ],
-                            usePromotionTimestamp: false,
-                            useWorkspaceInPromotion: false,
-                            verbose: false
-                        )
-                    ])
+                    sshPublisher(
+                        publishers: [
+                            sshPublisherDesc(
+                                configName: 'Kubernetes_Master',
+                                transfers: [
+                                    sshTransfer(
+                                        sourceFiles: '*.yaml',
+                                        remoteDirectory: '/home/ubuntu/star-agile-banking-finance',
+                                        execCommand: 'kubectl apply -f /home/ubuntu/star-agile-banking-finance/kubernetesdeploy.yaml',
+                                        execTimeout: 120000,
+                                        flatten: false
+                                    )
+                                ]
+                            )
+                        ]
+                    )
                 }
             }
         }
@@ -71,29 +71,14 @@ pipeline {
 
     post {
         success {
-            emailext(
-                subject: "✅ Jenkins Build Successful: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: """Good job Abhishek!
-
-Build #${env.BUILD_NUMBER} of ${env.JOB_NAME} succeeded.
-
-Check details: ${env.BUILD_URL}
-""",
-                to: 'abhipande285@gmail.com'
-            )
+            mail to: 'abhipande285@gmail.com',
+                 subject: "✅ Build #${env.BUILD_NUMBER} Succeeded - Banking App",
+                 body: "Good news! The Banking App pipeline completed successfully.\n\nCheck console: ${env.BUILD_URL}"
         }
-
         failure {
-            emailext(
-                subject: "❌ Jenkins Build Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: """Hi Abhishek,
-
-Build #${env.BUILD_NUMBER} of ${env.JOB_NAME} failed.
-
-Check logs: ${env.BUILD_URL}
-""",
-                to: 'abhipande285@gmail.com'
-            )
+            mail to: 'abhipande285@gmail.com',
+                 subject: "❌ Build #${env.BUILD_NUMBER} Failed - Banking App",
+                 body: "Something went wrong in the pipeline. Please review the Jenkins logs here:\n\n${env.BUILD_URL}"
         }
     }
 }
