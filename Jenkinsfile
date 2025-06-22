@@ -8,21 +8,21 @@ pipeline {
     stages {
         stage('SCM Checkout') {
             steps {
-                echo 'Perform SCM Checkout'
+                echo 'Checking out source code...'
                 git 'https://github.com/AbhishekPande285/star-agile-banking-finance.git'
             }
         }
 
         stage('Application Build') {
             steps {
-                echo 'Perform Application Build'
+                echo 'Running Maven Build...'
                 sh 'mvn clean package'
             }
         }
 
         stage('Docker Build') {
             steps {
-                echo 'Perform Docker Build'
+                echo 'Building Docker Image...'
                 sh "docker build -t abhishekpande285/bankapp-eta-app:${BUILD_NUMBER} ."
                 sh "docker tag abhishekpande285/bankapp-eta-app:${BUILD_NUMBER} abhishekpande285/bankapp-eta-app:latest"
                 sh 'docker image list'
@@ -31,38 +31,69 @@ pipeline {
 
         stage('Login to DockerHub') {
             steps {
-                echo 'Login to DockerHub'
+                echo 'Logging in to DockerHub...'
                 sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
             }
         }
 
-        stage('Publish the Image to DockerHub') {
+        stage('Push Image to DockerHub') {
             steps {
-                echo 'Push Docker Image to DockerHub'
+                echo 'Pushing Docker Image...'
                 sh 'docker push abhishekpande285/bankapp-eta-app:latest'
             }
         }
 
         stage('Deploy to Kubernetes Cluster') {
             steps {
+                echo 'Deploying to Kubernetes...'
                 script {
-                    echo 'Copying deployment YAML and applying to Kubernetes Cluster'
                     sshPublisher(publishers: [
                         sshPublisherDesc(
                             configName: 'Kubernetes_Master',
                             transfers: [
                                 sshTransfer(
-                                    sourceFiles: 'kubernetesdeploy.yaml',
-                                    remoteDirectory: '.', // home of devopsadmin
+                                    sourceFiles: '*.yaml',
+                                    removePrefix: '',
+                                    remoteDirectory: '.',
                                     execCommand: 'kubectl apply -f kubernetesdeploy.yaml',
-                                    flatten: true
+                                    execTimeout: 120000
                                 )
                             ],
-                            verbose: true
+                            usePromotionTimestamp: false,
+                            useWorkspaceInPromotion: false,
+                            verbose: false
                         )
                     ])
                 }
             }
+        }
+    }
+
+    post {
+        success {
+            emailext(
+                subject: "✅ Jenkins Build Successful: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """Good job Abhishek!
+
+Build #${env.BUILD_NUMBER} of ${env.JOB_NAME} succeeded.
+
+Check details: ${env.BUILD_URL}
+""",
+                to: 'abhipande285@gmail.com'
+            )
+        }
+
+        failure {
+            emailext(
+                subject: "❌ Jenkins Build Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """Hi Abhishek,
+
+Build #${env.BUILD_NUMBER} of ${env.JOB_NAME} failed.
+
+Check logs: ${env.BUILD_URL}
+""",
+                to: 'abhipande285@gmail.com'
+            )
         }
     }
 }
